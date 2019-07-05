@@ -8,8 +8,8 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 import astropy.units as unit
 
-numre = re.compile('(\d+[.]\d+D[+]\d+)|(-?\d+[.]\d+)')
-flagre = re.compile('-[a-zA-Z]')
+numre = re.compile(r'(\d+[.]\d+D[+]\d+)|(-?\d+[.]\d+)')
+flagre = re.compile(r'-[a-zA-Z]')
 
 c = 2.9979e8
 PC_TO_M = 3.086e16

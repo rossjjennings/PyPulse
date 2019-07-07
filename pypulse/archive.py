@@ -34,6 +34,7 @@ import tempfile
 import numpy as np
 import numpy.ma as ma
 import matplotlib.pyplot as plt
+from astropy.time import Time, TimeDelta
 import astropy.coordinates as coordinates
 import astropy.units as units
 try:
@@ -112,9 +113,51 @@ class Archive(object):
     def __repr__(self):
         return "Archive(%r, prepare=%r, lowmem=%r, verbose=%r)" % \
                 (self.filename, self.prepare, self.lowmem, self.verbose)
+        template = "<{} {} observation of {}>"
+        telescope = self.header['TELESCOP']
+        source = self.header['SRC_NAME']
+        modes = {'PSR': 'fold-mode', 'CAL': 'calibration', 'SEARCH': 'search-mode'}
+        mode = modes[self.header['OBS_MODE']]
+        descr = template.format(telescope, mode, source)
+        
+        return descr
 
     def __str__(self):
-        return self.filename
+        telescope = self.header['TELESCOP']
+        source = self.header['SRC_NAME']
+        starttime = self.getMJD(astropy=True)
+        observer = self.header['OBSERVER']
+        project = self.header['PROJID']
+        modes = {'PSR': 'fold-mode', 'CAL': 'calibration', 'SEARCH': 'search-mode'}
+        mode = modes[self.header['OBS_MODE']]
+        nsubint = self.subintheader['NAXIS2']
+        med_dur = np.median(self.durations)
+        npol = self.subintheader['NPOL']
+        pol_type = self.subintheader['POL_TYPE']
+        nchan = self.subintheader['NCHAN']
+        chan_bw = np.abs(self.subintheader['CHAN_BW'])
+        nbin = self.subintheader['NBIN']
+        tbin = self.history.getLatest('TBIN')
+        frontend = self.header['FRONTEND']
+        backend = self.header['BACKEND']
+        
+        descr_header = "{} {} observation of {} for {}"
+        descr = descr_header.format(telescope, mode, source, project)
+        descr += "\nStart time: {} (MJD {:5.5f})".format(starttime.iso[:19], starttime.mjd)
+        descr += "\nFrontend: {}".format(frontend)
+        descr += "\nBackend: {}".format(backend)
+        descr += "\nCoordinates:"
+        subint_line = "\n  * Subintegration: {} (median duration: {} s)"
+        descr += subint_line.format(nsubint, med_dur)
+        pol_line = "\n  * Polarization: {} ({})"
+        descr += pol_line.format(npol, pol_type)
+        freq_line = "\n  * Frequency: {} (channel bandwidth: {} MHz)"
+        descr += freq_line.format(nchan, chan_bw)
+        phase_line = "\n  * Phase: {} (bin width: {:g} s)"
+        descr += phase_line.format(nbin, tbin)
+        descr += "\nObserved by {}".format(observer)
+        
+        return descr
 
     def load(self, filename, prepare=True, center_pulse=True,
              baseline_removal=True, weight=True, wcfreq=True,
@@ -1770,11 +1813,16 @@ class Archive(object):
         """Returns pulsar name"""
         return self.header['SRC_NAME']
 
-    def getMJD(self, full=False, numwrap=float):
+    def getMJD(self, full=False, astropy=False, numwrap=float):
         """Returns MJD of observation"""
         if full:
             return (numwrap(self.header['STT_IMJD']) +
                     (numwrap(self.header['STT_SMJD'])+numwrap(self.header['STT_OFFS']))/numwrap(86400))
+        if astropy:
+            IMJD = Time(self.header['STT_IMJD'], format='mjd')
+            SMJD = TimeDelta(self.header['STT_SMJD'], format='sec')
+            OFFS = TimeDelta(self.header['STT_SMJD'], format='sec')
+            return IMJD + SMJD + OFFS
         return numwrap(self.header['STT_IMJD'])+numwrap(self.header['STT_OFFS'])
 
     def getTbin(self, numwrap=float):
